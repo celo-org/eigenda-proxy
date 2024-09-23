@@ -40,6 +40,7 @@ type S3Config struct {
 	Bucket           string
 	Path             string
 	Endpoint         string
+	DisableTLS       bool
 	AccessKeyID      string
 	AccessKeySecret  string
 	Profiling        bool
@@ -56,7 +57,7 @@ type S3Store struct {
 func NewS3(cfg S3Config) (*S3Store, error) {
 	client, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  creds(cfg),
-		Secure: false,
+		Secure: !cfg.DisableTLS,
 	})
 	if err != nil {
 		return nil, err

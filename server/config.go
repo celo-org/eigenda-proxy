@@ -55,6 +55,7 @@ const (
 	S3BucketFlagName          = "s3.bucket"          // #nosec G101
 	S3PathFlagName            = "s3.path"
 	S3EndpointFlagName        = "s3.endpoint"
+	S3DisableTLSFlagName      = "s3.disable-tls"
 	S3AccessKeyIDFlagName     = "s3.access-key-id"     // #nosec G101
 	S3AccessKeySecretFlagName = "s3.access-key-secret" // #nosec G101
 	S3BackupFlagName          = "s3.backup"
@@ -172,6 +173,7 @@ func ReadConfig(ctx *cli.Context) Config {
 			Bucket:           ctx.String(S3BucketFlagName),
 			Path:             ctx.String(S3PathFlagName),
 			Endpoint:         ctx.String(S3EndpointFlagName),
+			DisableTLS:       ctx.Bool(S3DisableTLSFlagName),
 			AccessKeyID:      ctx.String(S3AccessKeyIDFlagName),
 			AccessKeySecret:  ctx.String(S3AccessKeySecretFlagName),
 			Backup:           ctx.Bool(S3BackupFlagName),
@@ -320,6 +322,12 @@ func s3Flags() []cli.Flag {
 			Usage:   "endpoint for S3 storage",
 			Value:   "",
 			EnvVars: prefixEnvVars("S3_ENDPOINT"),
+		},
+		&cli.BoolFlag{
+			Name:    S3DisableTLSFlagName,
+			Usage:   "whether to disable TLS for S3 storage",
+			Value:   true,
+			EnvVars: prefixEnvVars("S3_DISABLE_TLS"),
 		},
 		&cli.StringFlag{
 			Name:    S3AccessKeyIDFlagName,
