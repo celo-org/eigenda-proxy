@@ -64,6 +64,7 @@ const (
 	// routing flags
 	FallbackTargets = "routing.fallback-targets"
 	CacheTargets    = "routing.cache-targets"
+	WriteOnMiss     = "routing.write-on-miss"
 )
 
 const (
@@ -110,6 +111,7 @@ type Config struct {
 	// routing
 	FallbackTargets []string
 	CacheTargets    []string
+	WriteOnMiss     bool
 
 	// secondary storage
 	RedisCfg store.RedisConfig
@@ -204,6 +206,7 @@ func ReadConfig(ctx *cli.Context) Config {
 		MemstorePutLatency:      ctx.Duration(MemstorePutLatencyFlagName),
 		FallbackTargets:         ctx.StringSlice(FallbackTargets),
 		CacheTargets:            ctx.StringSlice(CacheTargets),
+		WriteOnMiss:             ctx.Bool(WriteOnMiss),
 	}
 	// the eigenda client can only wait for 0 confirmations or finality
 	// the da-proxy has a more fine-grained notion of confirmation depth
@@ -525,6 +528,12 @@ func CLIFlags() []cli.Flag {
 			Usage:   "List of caching targets to use fast reads from EigenDA.",
 			Value:   cli.NewStringSlice(),
 			EnvVars: prefixEnvVars("CACHE_TARGETS"),
+		},
+		&cli.BoolFlag{
+			Name:    WriteOnMiss,
+			Usage:   "Whether to write to the cache on a cache miss.",
+			Value:   false,
+			EnvVars: prefixEnvVars("WRITE_ON_MISS"),
 		},
 	}
 

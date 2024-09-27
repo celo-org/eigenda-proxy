@@ -29,20 +29,22 @@ type Router struct {
 	eigenda KeyGeneratedStore
 	s3      PrecomputedKeyStore
 
-	caches    []PrecomputedKeyStore
-	cacheLock sync.RWMutex
+	caches      []PrecomputedKeyStore
+	writeOnMiss bool
+	cacheLock   sync.RWMutex
 
 	fallbacks    []PrecomputedKeyStore
 	fallbackLock sync.RWMutex
 }
 
 func NewRouter(eigenda KeyGeneratedStore, s3 PrecomputedKeyStore, l log.Logger,
-	caches []PrecomputedKeyStore, fallbacks []PrecomputedKeyStore) (IRouter, error) {
+	caches []PrecomputedKeyStore, writeOnMiss bool, fallbacks []PrecomputedKeyStore) (IRouter, error) {
 	return &Router{
 		log:          l,
 		eigenda:      eigenda,
 		s3:           s3,
 		caches:       caches,
+		writeOnMiss:  writeOnMiss,
 		cacheLock:    sync.RWMutex{},
 		fallbacks:    fallbacks,
 		fallbackLock: sync.RWMutex{},
@@ -71,6 +73,7 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 		return value, nil
 
 	case commitments.SimpleCommitmentMode, commitments.OptimismAltDA:
+		cacheMiss := false
 		if r.eigenda == nil {
 			return nil, errors.New("expected EigenDA backend for DA commitment type, but none configured")
 		}
@@ -82,7 +85,7 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			if err == nil {
 				return data, nil
 			}
-
+			cacheMiss = true
 			r.log.Warn("Failed to read from cache targets", "err", err)
 		}
 
@@ -93,6 +96,14 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			err = r.eigenda.Verify(key, data)
 			if err != nil {
 				return nil, err
+			}
+			if cacheMiss && r.writeOnMiss {
+				// write to cache if cache miss and writeOnMiss is enabled
+				r.log.Info("Writing to cache on miss", "key", key)
+				err = r.handleRedundantWrites(ctx, key, data)
+				if err != nil {
+					r.log.Error("Failed to write to redundant backends", "err", err)
+				}
 			}
 			return data, nil
 		}
