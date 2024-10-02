@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"path"
 	"time"
@@ -75,6 +76,7 @@ func NewS3(cfg Config) (*Store, error) {
 }
 
 func (s *Store) Get(ctx context.Context, key []byte) ([]byte, error) {
+	fmt.Printf("GCS Object path: %s\n", path.Join(s.cfg.Path, hex.EncodeToString(key)))
 	result, err := s.client.GetObject(ctx, s.cfg.Bucket, path.Join(s.cfg.Path, hex.EncodeToString(key)), minio.GetObjectOptions{})
 	if err != nil {
 		errResponse := minio.ToErrorResponse(err)

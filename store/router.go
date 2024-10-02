@@ -86,10 +86,10 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			dataS3, err = r.multiSourceRead(ctx, key, false)
 			if err == nil {
 				r.log.Debug("Data found in cache")
-				return dataS3, nil
+				// return dataS3, nil
+			} else {
+				r.log.Warn("Failed to read from cache targets", "err", err, "data", dataS3)
 			}
-
-			r.log.Warn("Failed to read from cache targets", "err", err, "data", dataS3)
 		}
 
 		// 2 - read blob from EigenDA
@@ -193,6 +193,7 @@ func (r *Router) handleRedundantWrites(ctx context.Context, commitment []byte, v
 func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallback bool) ([]byte, error) {
 	var sources []PrecomputedKeyStore
 	var data []byte
+	var err error
 	if fallback {
 		r.fallbackLock.RLock()
 		defer r.fallbackLock.RUnlock()
@@ -207,7 +208,7 @@ func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallbac
 
 	key := crypto.Keccak256(commitment)
 	for _, src := range sources {
-		data, err := src.Get(ctx, key)
+		data, err = src.Get(ctx, key)
 		if err != nil {
 			r.log.Warn("Failed to read from redundant target", "backend", src.BackendType(), "err", err)
 			continue
@@ -226,7 +227,6 @@ func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallbac
 		err = r.eigenda.Verify(commitment, data)
 		if err != nil {
 			log.Warn("Failed to verify blob", "err", err, "backend", src.BackendType())
-			fmt.Printf("Data: %x\n", data)
 			continue
 		}
 
@@ -301,24 +301,24 @@ func compareByteSlices(a, b []byte) {
 	}
 
 	fmt.Println("The byte slices are different.")
-	minLen := len(a)
-	if len(b) < minLen {
-		minLen = len(b)
-	}
+	// minLen := len(a)
+	// if len(b) < minLen {
+	// 	minLen = len(b)
+	// }
 
 	fmt.Printf("A = %x\nB = %x\n", a, b)
 
-	for i := 0; i < minLen; i++ {
-		if a[i] != b[i] {
-			fmt.Printf("Difference at index %d: a[%d] = %x, b[%d] = %x\n", i, i, a[i], i, b[i])
-		}
-	}
+	// for i := 0; i < minLen; i++ {
+	// 	if a[i] != b[i] {
+	// 		fmt.Printf("Difference at index %d: a[%d] = %x, b[%d] = %x\n", i, i, a[i], i, b[i])
+	// 	}
+	// }
 
-	if len(a) > minLen {
-		fmt.Printf("Additional bytes in a: %x\n", a[minLen:])
-	}
+	// if len(a) > minLen {
+	// 	fmt.Printf("Additional bytes in a: %x\n", a[minLen:])
+	// }
 
-	if len(b) > minLen {
-		fmt.Printf("Additional bytes in b: %x\n", b[minLen:])
-	}
+	// if len(b) > minLen {
+	// 	fmt.Printf("Additional bytes in b: %x\n", b[minLen:])
+	// }
 }
