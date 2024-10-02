@@ -3,7 +3,9 @@
 package store
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -74,21 +76,29 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 		if r.eigenda == nil {
 			return nil, errors.New("expected EigenDA backend for DA commitment type, but none configured")
 		}
+		var dataS3 []byte
+		var data []byte
+		var err error
 
 		// 1 - read blob from cache if enabled
 		if r.cacheEnabled() {
 			r.log.Debug("Retrieving data from cached backends")
-			data, err := r.multiSourceRead(ctx, key, false)
+			dataS3, err = r.multiSourceRead(ctx, key, false)
 			if err == nil {
-				return data, nil
+				r.log.Debug("Data found in cache")
+				return dataS3, nil
 			}
 
-			r.log.Warn("Failed to read from cache targets", "err", err)
+			r.log.Warn("Failed to read from cache targets", "err", err, "data", dataS3)
 		}
 
 		// 2 - read blob from EigenDA
-		data, err := r.eigenda.Get(ctx, key)
+		data, err = r.eigenda.Get(ctx, key)
 		if err == nil {
+			commitmentHashString := computeSHA256Hash(key)
+			dataHashString := computeSHA256Hash(data)
+			r.log.Debug("Data found in EigenDA", "commitment", commitmentHashString, "dataHash", dataHashString)
+			compareByteSlices(dataS3, data)
 			// verify
 			err = r.eigenda.Verify(key, data)
 			if err != nil {
@@ -182,6 +192,7 @@ func (r *Router) handleRedundantWrites(ctx context.Context, commitment []byte, v
 // multiSourceRead ... reads from a set of backends and returns the first successfully read blob
 func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallback bool) ([]byte, error) {
 	var sources []PrecomputedKeyStore
+	var data []byte
 	if fallback {
 		r.fallbackLock.RLock()
 		defer r.fallbackLock.RUnlock()
@@ -207,16 +218,21 @@ func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallbac
 			continue
 		}
 
+		commitmentHashString := computeSHA256Hash(commitment)
+		keyHashString := computeSHA256Hash(key)
+		dataHashString := computeSHA256Hash(data)
+		r.log.Debug("Data found in redundant target", "commitmentHash", commitmentHashString, "keyHash", keyHashString, "dataHash", dataHashString)
 		// verify cert:data using EigenDA verification checks
 		err = r.eigenda.Verify(commitment, data)
 		if err != nil {
 			log.Warn("Failed to verify blob", "err", err, "backend", src.BackendType())
+			fmt.Printf("Data: %x\n", data)
 			continue
 		}
 
 		return data, nil
 	}
-	return nil, errors.New("no data found in any redundant backend")
+	return data, errors.New("no data found in any redundant backend")
 }
 
 // putWithoutKey ... inserts a value into a storage backend that computes the key on-demand (i.e, EigenDA)
@@ -269,4 +285,40 @@ func (r *Router) Caches() []PrecomputedKeyStore {
 // Fallbacks ...
 func (r *Router) Fallbacks() []PrecomputedKeyStore {
 	return r.fallbacks
+}
+
+func computeSHA256Hash(data []byte) string {
+	hash := sha256.New()
+	hash.Write(data)
+	dataHash := hash.Sum(nil)
+	return fmt.Sprintf("%x", dataHash)
+}
+
+func compareByteSlices(a, b []byte) {
+	if bytes.Equal(a, b) {
+		fmt.Println("The byte slices are equal.")
+		return
+	}
+
+	fmt.Println("The byte slices are different.")
+	minLen := len(a)
+	if len(b) < minLen {
+		minLen = len(b)
+	}
+
+	fmt.Printf("A = %x\nB = %x\n", a, b)
+
+	for i := 0; i < minLen; i++ {
+		if a[i] != b[i] {
+			fmt.Printf("Difference at index %d: a[%d] = %x, b[%d] = %x\n", i, i, a[i], i, b[i])
+		}
+	}
+
+	if len(a) > minLen {
+		fmt.Printf("Additional bytes in a: %x\n", a[minLen:])
+	}
+
+	if len(b) > minLen {
+		fmt.Printf("Additional bytes in b: %x\n", b[minLen:])
+	}
 }
