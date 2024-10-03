@@ -86,19 +86,14 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			dataS3, err = r.multiSourceRead(ctx, key, false)
 			if err == nil {
 				r.log.Debug("Data found in cache")
-				// return dataS3, nil
-			} else {
-				r.log.Warn("Failed to read from cache targets", "err", err, "data", dataS3)
+				return dataS3, nil
 			}
 		}
 
 		// 2 - read blob from EigenDA
 		data, err = r.eigenda.Get(ctx, key)
 		if err == nil {
-			commitmentHashString := computeSHA256Hash(key)
-			dataHashString := computeSHA256Hash(data)
-			r.log.Debug("Data found in EigenDA", "commitment", commitmentHashString, "dataHash", dataHashString)
-			compareByteSlices(dataS3, data)
+			// compareByteSlices(dataS3, data)
 			// verify
 			err = r.eigenda.Verify(key, data)
 			if err != nil {
@@ -219,10 +214,6 @@ func (r *Router) multiSourceRead(ctx context.Context, commitment []byte, fallbac
 			continue
 		}
 
-		commitmentHashString := computeSHA256Hash(commitment)
-		keyHashString := computeSHA256Hash(key)
-		dataHashString := computeSHA256Hash(data)
-		r.log.Debug("Data found in redundant target", "commitmentHash", commitmentHashString, "keyHash", keyHashString, "dataHash", dataHashString)
 		// verify cert:data using EigenDA verification checks
 		err = r.eigenda.Verify(commitment, data)
 		if err != nil {

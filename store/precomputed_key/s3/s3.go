@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"time"
 
 	"github.com/Layr-Labs/eigenda-proxy/store"
@@ -95,6 +96,11 @@ func (s *Store) Get(ctx context.Context, key []byte) ([]byte, error) {
 		s.stats.Reads++
 	}
 
+	data, err = removeChunkSignature(data)
+	if err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 
@@ -133,4 +139,32 @@ func creds(cfg Config) *credentials.Credentials {
 		return credentials.NewIAM("")
 	}
 	return credentials.NewStaticV4(cfg.AccessKeyID, cfg.AccessKeySecret, "")
+}
+
+// removeChunkSignature removes the chunk signature from the data if present
+func removeChunkSignature(data []byte) ([]byte, error) {
+	fmt.Println("Removing chunk signature from data")
+
+	// Remove the first line if it contains ';chunk-signature='
+	chunkSignaturePattern := `(?m)^.*;chunk-signature=[a-fA-F0-9]+`
+	re := regexp.MustCompile(chunkSignaturePattern)
+
+	// Convert data to string for debugging
+	dataStr := string(data)
+	// fmt.Printf("Data before removing chunk signature: %s\n", dataStr)
+
+	// Remove the chunk signature from the data
+	dataStr = re.ReplaceAllString(dataStr, "")
+
+	// Define a regular expression to match \r\n sequences at the beginning and end
+	trimPattern := `(?m)^(\r\n)+|(\r\n)+$`
+	reTrim := regexp.MustCompile(trimPattern)
+	dataStr = reTrim.ReplaceAllString(dataStr, "")
+
+	// Print the data after removing the chunk signature for debugging
+	// fmt.Printf("Data after removing chunk signature: %s\n", dataStr)
+
+	// Convert data back to byte slice
+	data = []byte(dataStr)
+	return data, nil
 }
