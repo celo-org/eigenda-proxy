@@ -99,6 +99,12 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			if err != nil {
 				return nil, err
 			}
+			// Upload to S3
+			r.log.Debug("Storing data to S3 backend after fetching from EigenDA")
+			err = r.handleRedundantWrites(ctx, key, data)
+			if err != nil {
+				log.Error("Failed to write to redundant backends", "err", err)
+			}
 			return data, nil
 		}
 
