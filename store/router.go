@@ -91,6 +91,8 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 		}
 
 		// 2 - read blob from EigenDA
+		// TODO: Skipping download from EigenDA to test S3 data
+		return nil, errors.New("could not determine which storage backend to route to based on unknown commitment mode")
 		data, err = r.eigenda.Get(ctx, key)
 		if err == nil {
 			// compareByteSlices(dataS3, data)

@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"time"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/minio/minio-go/v7"
 
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/s3utils"
 )
 
 const (
@@ -76,7 +77,6 @@ func NewS3(cfg Config) (*Store, error) {
 }
 
 func (s *Store) Get(ctx context.Context, key []byte) ([]byte, error) {
-	fmt.Printf("GCS Object path: %s\n", path.Join(s.cfg.Path, hex.EncodeToString(key)))
 	result, err := s.client.GetObject(ctx, s.cfg.Bucket, path.Join(s.cfg.Path, hex.EncodeToString(key)), minio.GetObjectOptions{})
 	if err != nil {
 		errResponse := minio.ToErrorResponse(err)
@@ -99,9 +99,16 @@ func (s *Store) Get(ctx context.Context, key []byte) ([]byte, error) {
 }
 
 func (s *Store) Put(ctx context.Context, key []byte, value []byte) error {
-	_, err := s.client.PutObject(ctx, s.cfg.Bucket, path.Join(s.cfg.Path, hex.EncodeToString(key)), bytes.NewReader(value), int64(len(value)), minio.PutObjectOptions{
-		DisableContentSha256: true, // Avoid chunk signatures on GCS: https://github.com/minio/minio-go/issues/1922
-	})
+	endpointURL, err := url.Parse(s.cfg.Endpoint)
+	if err != nil {
+		return err
+	}
+
+	putObjectOptions := minio.PutObjectOptions{}
+	if s3utils.IsGoogleEndpoint(*endpointURL) {
+		putObjectOptions.DisableContentSha256 = true // Avoid chunk signatures on GCS: https://github.com/minio/minio-go/issues/1922
+	}
+	_, err = s.client.PutObject(ctx, s.cfg.Bucket, path.Join(s.cfg.Path, hex.EncodeToString(key)), bytes.NewReader(value), int64(len(value)), putObjectOptions)
 	if err != nil {
 		return err
 	}
