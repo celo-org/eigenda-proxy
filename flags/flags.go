@@ -30,6 +30,7 @@ const (
 	// routing flags
 	FallbackTargetsFlagName = "routing.fallback-targets"
 	CacheTargetsFlagName    = "routing.cache-targets"
+	WriteOnMissFlagName     = "routing.write-on-miss"
 )
 
 const EnvVarPrefix = "EIGENDA_PROXY"
@@ -64,6 +65,12 @@ func CLIFlags() []cli.Flag {
 			Usage:   "List of caching targets to use fast reads from EigenDA.",
 			Value:   cli.NewStringSlice(),
 			EnvVars: prefixEnvVars("CACHE_TARGETS"),
+		},
+		&cli.BoolFlag{
+			Name:    WriteOnMissFlagName,
+			Usage:   "Write to the cache if a file is not found in the cache but is found in EigenDA.",
+			Value:   false,
+			EnvVars: prefixEnvVars("WRITE_ON_MISS"),
 		},
 	}
 

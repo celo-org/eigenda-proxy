@@ -34,10 +34,11 @@ type Router struct {
 
 	fallbacks    []PrecomputedKeyStore
 	fallbackLock sync.RWMutex
+	writeOnMiss  bool
 }
 
 func NewRouter(eigenda GeneratedKeyStore, s3 PrecomputedKeyStore, l log.Logger,
-	caches []PrecomputedKeyStore, fallbacks []PrecomputedKeyStore) (IRouter, error) {
+	caches []PrecomputedKeyStore, fallbacks []PrecomputedKeyStore, writeOnMiss bool) (IRouter, error) {
 	return &Router{
 		log:          l,
 		eigenda:      eigenda,
@@ -46,6 +47,7 @@ func NewRouter(eigenda GeneratedKeyStore, s3 PrecomputedKeyStore, l log.Logger,
 		cacheLock:    sync.RWMutex{},
 		fallbacks:    fallbacks,
 		fallbackLock: sync.RWMutex{},
+		writeOnMiss:  writeOnMiss,
 	}, nil
 }
 
@@ -74,6 +76,7 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 		if r.eigenda == nil {
 			return nil, errors.New("expected EigenDA backend for DA commitment type, but none configured")
 		}
+		cacheMiss := false
 
 		// 1 - read blob from cache if enabled
 		if r.cacheEnabled() {
@@ -82,7 +85,7 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			if err == nil {
 				return data, nil
 			}
-
+			cacheMiss = true
 			r.log.Warn("Failed to read from cache targets", "err", err)
 		}
 
@@ -94,6 +97,15 @@ func (r *Router) Get(ctx context.Context, key []byte, cm commitments.CommitmentM
 			if err != nil {
 				return nil, err
 			}
+
+			if r.writeOnMiss && cacheMiss {
+				r.log.Info("Cache miss but data found in EigenDA, writing to cache targets")
+				err = r.handleRedundantWrites(ctx, key, data)
+				if err != nil {
+					r.log.Error("Failed to write to cache targets", "err", err)
+				}
+			}
+
 			return data, nil
 		}
 

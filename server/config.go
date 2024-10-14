@@ -28,6 +28,7 @@ type Config struct {
 	// routing
 	FallbackTargets []string
 	CacheTargets    []string
+	WriteOnMiss     bool
 
 	// secondary storage
 	RedisConfig redis.Config
@@ -45,6 +46,7 @@ func ReadConfig(ctx *cli.Context) Config {
 		MemstoreConfig:  memstore.ReadConfig(ctx),
 		FallbackTargets: ctx.StringSlice(flags.FallbackTargetsFlagName),
 		CacheTargets:    ctx.StringSlice(flags.CacheTargetsFlagName),
+		WriteOnMiss:     ctx.Bool(flags.WriteOnMissFlagName),
 	}
 }
 
