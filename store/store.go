@@ -12,6 +12,7 @@ type Config struct {
 	AsyncPutWorkers int
 	FallbackTargets []string
 	CacheTargets    []string
+	WriteOnMiss     bool
 
 	// secondary storage cfgs
 	RedisConfig redis.Config

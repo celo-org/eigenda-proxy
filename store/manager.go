@@ -27,16 +27,20 @@ type Manager struct {
 
 	// secondary storage backends (caching and fallbacks)
 	secondary ISecondary
+
+	// writeOnMiss ... flag to enable writing to secondary storage backends on cache miss
+	writeOnMiss bool
 }
 
 // NewManager ... Init
 func NewManager(eigenda common.GeneratedKeyStore, s3 common.PrecomputedKeyStore, l log.Logger,
-	secondary ISecondary) (IManager, error) {
+	secondary ISecondary, writeOnMiss bool) (IManager, error) {
 	return &Manager{
-		log:       l,
-		eigenda:   eigenda,
-		s3:        s3,
-		secondary: secondary,
+		log:         l,
+		eigenda:     eigenda,
+		s3:          s3,
+		secondary:   secondary,
+		writeOnMiss: writeOnMiss,
 	}, nil
 }
 
@@ -67,6 +71,7 @@ func (m *Manager) Get(ctx context.Context, key []byte, cm commitments.Commitment
 		if m.eigenda == nil {
 			return nil, errors.New("expected EigenDA backend for DA commitment type, but none configured")
 		}
+		cacheMiss := false
 
 		// 1 - read blob from cache if enabled
 		if m.secondary.CachingEnabled() {
@@ -75,6 +80,7 @@ func (m *Manager) Get(ctx context.Context, key []byte, cm commitments.Commitment
 			if err == nil {
 				return data, nil
 			}
+			cacheMiss = true
 
 			m.log.Warn("Failed to read from cache targets", "err", err)
 		}
@@ -86,6 +92,22 @@ func (m *Manager) Get(ctx context.Context, key []byte, cm commitments.Commitment
 			err = m.eigenda.Verify(ctx, key, data)
 			if err != nil {
 				return nil, err
+			}
+
+			// write to cache if cache miss
+			if cacheMiss && m.writeOnMiss && m.secondary.Enabled() {
+				m.log.Info("Cache miss but data found in EigenDA, writing to cache targets")
+				if m.secondary.AsyncWriteEntry() {
+					m.secondary.Topic() <- PutNotify{
+						Commitment: key,
+						Value:      data,
+					}
+				} else {
+					err := m.secondary.HandleRedundantWrites(ctx, key, data)
+					if err != nil {
+						m.log.Error("Secondary insertions failed", "error", err.Error())
+					}
+				}
 			}
 			return data, nil
 		}

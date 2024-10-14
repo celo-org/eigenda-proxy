@@ -14,6 +14,7 @@ var (
 	DeprecatedFallbackTargetsFlagName = withDeprecatedFlagPrefix("fallback-targets")
 	DeprecatedCacheTargetsFlagName    = withDeprecatedFlagPrefix("cache-targets")
 	DeprecatedConcurrentWriteThreads  = withDeprecatedFlagPrefix("concurrent-write-routines")
+	DeprecatedWriteOnMissFlagName     = withDeprecatedFlagPrefix("write-on-miss")
 )
 
 func withDeprecatedFlagPrefix(s string) string {
@@ -61,6 +62,18 @@ func DeprecatedCLIFlags(envPrefix, category string) []cli.Flag {
 				return fmt.Errorf("flag --%s (env var %s) is deprecated, use --%s (env var %s) instead",
 					DeprecatedCacheTargetsFlagName, withDeprecatedEnvPrefix(envPrefix, "CONCURRENT_WRITE_THREADS"),
 					CacheTargetsFlagName, withEnvPrefix(envPrefix, "CONCURRENT_WRITE_THREADS"))
+			},
+		},
+		&cli.BoolFlag{
+			Name:     DeprecatedWriteOnMissFlagName,
+			Usage:    "Write to the cache if a file is not found in the cache but is found in EigenDA.",
+			Value:    false,
+			EnvVars:  withDeprecatedEnvPrefix(envPrefix, "WRITE_ON_MISS"),
+			Category: category,
+			Action: func(*cli.Context, bool) error {
+				return fmt.Errorf("flag --%s (env var %s) is deprecated, use --%s (env var %s) instead",
+					DeprecatedWriteOnMissFlagName, withDeprecatedEnvPrefix(envPrefix, "WRITE_ON_MISS"),
+					WriteOnMissFlagName, withEnvPrefix(envPrefix, "WRITE_ON_MISS"))
 			},
 		},
 	}

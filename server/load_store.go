@@ -125,6 +125,7 @@ func LoadStoreManager(ctx context.Context, cfg CLIConfig, log log.Logger, m metr
 	fallbacks := populateTargets(cfg.EigenDAConfig.StorageConfig.FallbackTargets, s3Store, redisStore)
 	caches := populateTargets(cfg.EigenDAConfig.StorageConfig.CacheTargets, s3Store, redisStore)
 	secondary := store.NewSecondaryManager(log, m, caches, fallbacks)
+	writeOnMiss := cfg.EigenDAConfig.StorageConfig.WriteOnMiss
 
 	if secondary.Enabled() { // only spin-up go routines if secondary storage is enabled
 		// NOTE: in the future the number of threads could be made configurable via env
@@ -136,5 +137,5 @@ func LoadStoreManager(ctx context.Context, cfg CLIConfig, log log.Logger, m metr
 	}
 
 	log.Info("Creating storage router", "eigenda backend type", eigenDA != nil, "s3 backend type", s3Store != nil)
-	return store.NewManager(eigenDA, s3Store, log, secondary)
+	return store.NewManager(eigenDA, s3Store, log, secondary, writeOnMiss)
 }

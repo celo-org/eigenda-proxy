@@ -10,6 +10,7 @@ var (
 	FallbackTargetsFlagName = withFlagPrefix("fallback-targets")
 	CacheTargetsFlagName    = withFlagPrefix("cache-targets")
 	ConcurrentWriteThreads  = withFlagPrefix("concurrent-write-routines")
+	WriteOnMissFlagName     = withFlagPrefix("write-on-miss")
 )
 
 func withFlagPrefix(s string) string {
@@ -45,6 +46,13 @@ func CLIFlags(envPrefix, category string) []cli.Flag {
 			EnvVars:  withEnvPrefix(envPrefix, "CONCURRENT_WRITE_THREADS"),
 			Category: category,
 		},
+		&cli.BoolFlag{
+			Name:     WriteOnMissFlagName,
+			Usage:    "Write to the cache if a file is not found in the cache but is found in EigenDA.",
+			Value:    false,
+			EnvVars:  withEnvPrefix(envPrefix, "WRITE_ON_MISS"),
+			Category: category,
+		},
 	}
 }
 
@@ -53,6 +61,7 @@ func ReadConfig(ctx *cli.Context) Config {
 		AsyncPutWorkers: ctx.Int(ConcurrentWriteThreads),
 		FallbackTargets: ctx.StringSlice(FallbackTargetsFlagName),
 		CacheTargets:    ctx.StringSlice(CacheTargetsFlagName),
+		WriteOnMiss:     ctx.Bool(WriteOnMissFlagName),
 		RedisConfig:     redis.ReadConfig(ctx),
 		S3Config:        s3.ReadConfig(ctx),
 	}
