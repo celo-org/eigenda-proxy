@@ -144,6 +144,7 @@ func BuildStoreManager(
 		log,
 		secondary,
 		config.StoreConfig.DispersalBackend,
+		config.StoreConfig.WriteOnMiss,
 	)
 }
 

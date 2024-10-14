@@ -45,6 +45,8 @@ type Manager struct {
 
 	// secondary storage backends (caching and fallbacks)
 	secondary secondary.ISecondary
+	// writeOnMiss ... flag to enable writing to secondary storage backends on cache miss
+	writeOnMiss bool
 }
 
 var _ IManager = &Manager{}
@@ -73,6 +75,7 @@ func NewManager(
 	l logging.Logger,
 	secondary secondary.ISecondary,
 	dispersalBackend common.EigenDABackend,
+	writeOnMiss bool,
 ) (*Manager, error) {
 	// Enforce invariants
 	if dispersalBackend == common.V2EigenDABackend && eigenDAV2 == nil {
@@ -84,11 +87,12 @@ func NewManager(
 	}
 
 	manager := &Manager{
-		log:       l,
-		eigenda:   eigenda,
-		eigendaV2: eigenDAV2,
-		s3:        s3,
-		secondary: secondary,
+		log:         l,
+		eigenda:     eigenda,
+		eigendaV2:   eigenDAV2,
+		s3:          s3,
+		secondary:   secondary,
+		writeOnMiss: writeOnMiss,
 	}
 	manager.dispersalBackend.Store(dispersalBackend)
 	return manager, nil
@@ -114,6 +118,7 @@ func (m *Manager) Get(ctx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("get verify method: %w", err)
 		}
+		cacheMiss := false
 
 		// 1 - read blob from cache if enabled
 		if m.secondary.CachingEnabled() {
@@ -122,6 +127,7 @@ func (m *Manager) Get(ctx context.Context,
 			if err == nil {
 				return data, nil
 			}
+			cacheMiss = true
 
 			m.log.Warn("Failed to read from cache targets", "err", err)
 		}
@@ -129,6 +135,27 @@ func (m *Manager) Get(ctx context.Context,
 		// 2 - read blob from EigenDA
 		data, err := m.getFromCorrectEigenDABackend(ctx, versionedCert, verifyOpts)
 		if err == nil {
+			// verify
+			data, err := m.getFromCorrectEigenDABackend(ctx, versionedCert, verifyOpts)
+			if err != nil {
+				return nil, err
+			}
+
+			// write to cache if cache miss
+			if cacheMiss && m.writeOnMiss && m.secondary.Enabled() {
+				m.log.Info("Cache miss but data found in EigenDA, writing to cache targets")
+				if m.secondary.AsyncWriteEntry() {
+					m.secondary.Topic() <- secondary.PutNotify{
+						Commitment: versionedCert.SerializedCert,
+						Value:      data,
+					}
+				} else {
+					err := m.secondary.HandleRedundantWrites(ctx, versionedCert.SerializedCert, data)
+					if err != nil {
+						m.log.Error("Secondary insertions failed", "error", err.Error())
+					}
+				}
+			}
 			return data, nil
 		}
 
