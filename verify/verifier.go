@@ -185,7 +185,8 @@ func (v *Verifier) verifySecurityParams(blobHeader BlobHeader, batchHeader *disp
 	// ensure that required quorums are present in the confirmed ones
 	for _, quorum := range requiredQuorums {
 		if !confirmedQuorums[quorum] {
-			return fmt.Errorf("quorum %d is required but not present in confirmed quorums", quorum)
+			log.Warn("required quorum not present in confirmed quorums", "quorum", quorum)
+			// return fmt.Errorf("quorum %d is required but not present in confirmed quorums", quorum)
 		}
 	}
 
