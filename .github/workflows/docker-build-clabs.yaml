@@ -15,7 +15,8 @@ permissions: read-all
 jobs:
   Build-Container-dev:
     permissions:
-      contents: read
+      contents: write
+      actions: read
       pull-requests: write
       security-events: write
       attestations: write
@@ -35,7 +36,8 @@ jobs:
 
   Build-Container:
     permissions:
-      contents: read
+      contents: write
+      actions: read
       pull-requests: write
       security-events: write
       attestations: write
