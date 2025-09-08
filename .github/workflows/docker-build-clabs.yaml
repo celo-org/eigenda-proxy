@@ -1,0 +1,57 @@
+name: Build eigenda-proxy Docker Image for cLabs
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug:
+        type: boolean
+        description: 'debug with tmate'
+        default: false
+  push:
+  pull_request:
+
+permissions: read-all
+
+jobs:
+  Build-Container-dev:
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      security-events: write
+      attestations: write
+      id-token: write
+    concurrency:
+      group:   ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+      cancel-in-progress: true
+    if: github.ref != 'refs/heads/main'
+    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.0.0-alpha
+    with:
+      workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-eigenda-proxy-dev/providers/github-by-repos
+      service-account: eigenda-proxy-dev@devopsre.iam.gserviceaccount.com
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/dev-images/eigenda-proxy
+      tags: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }},dev
+      context: .
+      debug_enabled: ${{ inputs.debug != '' && inputs.debug || false }}
+
+  Build-Container:
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      security-events: write
+      attestations: write
+      id-token: write
+    concurrency:
+      group:   ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+      cancel-in-progress: true
+    if: github.ref == 'refs/heads/main'
+    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.0.0-alpha
+    with:
+      workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-eigenda-proxy/providers/github-by-repos
+      service-account: eigenda-proxy@devopsre.iam.gserviceaccount.com
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/eigenda-proxy/eigenda-proxy
+      tags: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }},latest
+      context: .
+      debug_enabled: ${{ inputs.debug != '' && inputs.debug || false }}
+
