@@ -11,6 +11,7 @@ import (
 	"github.com/Layr-Labs/eigenda-proxy/common/types/commitments"
 	"github.com/Layr-Labs/eigenda-proxy/store/secondary"
 	"github.com/Layr-Labs/eigenda-proxy/store/secondary/s3"
+	"github.com/Layr-Labs/eigenda/api"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 )
 
@@ -182,16 +183,17 @@ func (m *Manager) Get(ctx context.Context,
 
 // Put ... inserts a value into a storage backend based on the commitment mode
 func (m *Manager) Put(ctx context.Context, cm commitments.CommitmentMode, value []byte) ([]byte, error) {
-	var commit []byte
-	var err error
+	// var commit []byte
+	// var err error
 
 	// 1 - Put blob into primary storage backend
 	switch cm {
 	case commitments.OptimismGenericCommitmentMode, commitments.StandardCommitmentMode:
-		commit, err = m.putToCorrectEigenDABackend(ctx, value)
-		if err != nil {
-			return nil, err
-		}
+		// commit, err = m.putToCorrectEigenDABackend(ctx, value)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		return nil, api.NewErrorFailover(errors.New("forced failover from clabs team"))
 	case commitments.OptimismKeccakCommitmentMode:
 		// TODO: we should refactor the manager to not deal with keccak commitments at all.
 		return nil, fmt.Errorf("INTERNAL BUG: call PutOPKeccakPairInS3 instead")
@@ -199,24 +201,24 @@ func (m *Manager) Put(ctx context.Context, cm commitments.CommitmentMode, value 
 		return nil, fmt.Errorf("unknown commitment mode")
 	}
 
-	// 2 - Put blob into secondary storage backends
-	if m.secondary.Enabled() &&
-		m.secondary.AsyncWriteEntry() { // publish put notification to secondary's subscription on PutNotify topic
-		m.log.Debug("Publishing data to async secondary stores")
-		m.secondary.Topic() <- secondary.PutNotify{
-			Commitment: commit,
-			Value:      value,
-		}
-		// secondary is available only for synchronous writes
-	} else if m.secondary.Enabled() && !m.secondary.AsyncWriteEntry() {
-		m.log.Debug("Publishing data to single threaded secondary stores")
-		err := m.secondary.HandleRedundantWrites(ctx, commit, value)
-		if err != nil {
-			m.log.Error("Secondary insertions failed", "error", err.Error())
-		}
-	}
+	// // 2 - Put blob into secondary storage backends
+	// if m.secondary.Enabled() &&
+	// 	m.secondary.AsyncWriteEntry() { // publish put notification to secondary's subscription on PutNotify topic
+	// 	m.log.Debug("Publishing data to async secondary stores")
+	// 	m.secondary.Topic() <- secondary.PutNotify{
+	// 		Commitment: commit,
+	// 		Value:      value,
+	// 	}
+	// 	// secondary is available only for synchronous writes
+	// } else if m.secondary.Enabled() && !m.secondary.AsyncWriteEntry() {
+	// 	m.log.Debug("Publishing data to single threaded secondary stores")
+	// 	err := m.secondary.HandleRedundantWrites(ctx, commit, value)
+	// 	if err != nil {
+	// 		m.log.Error("Secondary insertions failed", "error", err.Error())
+	// 	}
+	// }
 
-	return commit, nil
+	// return commit, nil
 }
 
 // getVerifyMethod returns the correct verify method based on commitment type
