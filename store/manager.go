@@ -199,7 +199,7 @@ func (m *Manager) Put(ctx context.Context, cm commitments.CommitmentMode, value 
 	// 1 - Put blob into primary storage backend
 	switch cm {
 	case commitments.OptimismGenericCommitmentMode, commitments.StandardCommitmentMode:
-		if m.failover.Load() {
+		if m.GetFailover() {
 			return nil, api.NewErrorFailover(errors.New("forced failover from clabs team"))
 		}
 		commit, err = m.putToCorrectEigenDABackend(ctx, value)
