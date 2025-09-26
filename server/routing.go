@@ -99,6 +99,8 @@ func (svr *Server) RegisterRoutes(r *mux.Router) {
 		// Admin endpoints to check and set EigenDA backend used for dispersal
 		r.HandleFunc("/admin/eigenda-dispersal-backend", svr.handleGetEigenDADispersalBackend).Methods("GET")
 		r.HandleFunc("/admin/eigenda-dispersal-backend", svr.handleSetEigenDADispersalBackend).Methods("PUT")
+		r.HandleFunc("/admin/eigenda-failover", svr.handleGetEigenDAFailover).Methods("GET")
+		r.HandleFunc("/admin/eigenda-failover", svr.handleSetEigenDAFailover).Methods("PUT")
 	}
 }
 

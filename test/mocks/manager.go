@@ -72,6 +72,20 @@ func (mr *MockIManagerMockRecorder) GetDispersalBackend() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDispersalBackend", reflect.TypeOf((*MockIManager)(nil).GetDispersalBackend))
 }
 
+// GetFailover mocks base method.
+func (m *MockIManager) GetFailover() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFailover")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetFailover indicates an expected call of GetFailover.
+func (mr *MockIManagerMockRecorder) GetFailover() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFailover", reflect.TypeOf((*MockIManager)(nil).GetFailover))
+}
+
 // GetOPKeccakValueFromS3 mocks base method.
 func (m *MockIManager) GetOPKeccakValueFromS3(ctx context.Context, key []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -126,4 +140,16 @@ func (m *MockIManager) SetDispersalBackend(backend common.EigenDABackend) {
 func (mr *MockIManagerMockRecorder) SetDispersalBackend(backend any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDispersalBackend", reflect.TypeOf((*MockIManager)(nil).SetDispersalBackend), backend)
+}
+
+// SetFailover mocks base method.
+func (m *MockIManager) SetFailover(failover bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetFailover", failover)
+}
+
+// SetFailover indicates an expected call of SetFailover.
+func (mr *MockIManagerMockRecorder) SetFailover(failover any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFailover", reflect.TypeOf((*MockIManager)(nil).SetFailover), failover)
 }

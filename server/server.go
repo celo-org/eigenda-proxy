@@ -116,6 +116,11 @@ func (svr *Server) SetDispersalBackend(backend common.EigenDABackend) {
 	svr.sm.SetDispersalBackend(backend)
 }
 
+// SetFailover configures the failover flag
+func (svr *Server) SetFailover(failover bool) {
+	svr.sm.SetFailover(failover)
+}
+
 func (svr *Server) Port() int {
 	// read from listener
 	_, portStr, _ := net.SplitHostPort(svr.listener.Addr().String())

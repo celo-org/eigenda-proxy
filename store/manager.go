@@ -11,6 +11,7 @@ import (
 	"github.com/Layr-Labs/eigenda-proxy/common/types/commitments"
 	"github.com/Layr-Labs/eigenda-proxy/store/secondary"
 	"github.com/Layr-Labs/eigenda-proxy/store/secondary/s3"
+	"github.com/Layr-Labs/eigenda/api"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 )
 
@@ -27,6 +28,10 @@ type IManager interface {
 	SetDispersalBackend(backend common.EigenDABackend)
 	// See [Manager.GetDispersalBackend]
 	GetDispersalBackend() common.EigenDABackend
+	// See [Manager.GetFailover]
+	GetFailover() bool
+	// See [Manager.SetFailover]
+	SetFailover(failover bool)
 	// See [Manager.PutOPKeccakPairInS3]
 	PutOPKeccakPairInS3(ctx context.Context, key []byte, value []byte) error
 	// See [Manager.GetOPKeccakValueFromS3]
@@ -42,6 +47,7 @@ type Manager struct {
 	eigenda          common.EigenDAStore // v0 da commitment version
 	eigendaV2        common.EigenDAStore // v1 da commitment version
 	dispersalBackend atomic.Value        // stores the EigenDABackend to write blobs to
+	failover         atomic.Bool         // stores the failover flag
 
 	// secondary storage backends (caching and fallbacks)
 	secondary secondary.ISecondary
@@ -65,6 +71,16 @@ func (m *Manager) GetDispersalBackend() common.EigenDABackend {
 // SetDispersalBackend sets which EigenDA backend to use for dispersal
 func (m *Manager) SetDispersalBackend(backend common.EigenDABackend) {
 	m.dispersalBackend.Store(backend)
+}
+
+// GetFailover returns the current failover flag
+func (m *Manager) GetFailover() bool {
+	return m.failover.Load()
+}
+
+// SetFailover sets the failover flag
+func (m *Manager) SetFailover(failover bool) {
+	m.failover.Store(failover)
 }
 
 // NewManager ... Init
@@ -95,6 +111,7 @@ func NewManager(
 		writeOnMiss: writeOnMiss,
 	}
 	manager.dispersalBackend.Store(dispersalBackend)
+	manager.failover.Store(false)
 	return manager, nil
 }
 
@@ -135,12 +152,6 @@ func (m *Manager) Get(ctx context.Context,
 		// 2 - read blob from EigenDA
 		data, err := m.getFromCorrectEigenDABackend(ctx, versionedCert, verifyOpts)
 		if err == nil {
-			// verify
-			data, err := m.getFromCorrectEigenDABackend(ctx, versionedCert, verifyOpts)
-			if err != nil {
-				return nil, err
-			}
-
 			// write to cache if cache miss
 			if cacheMiss && m.writeOnMiss && m.secondary.Enabled() {
 				m.log.Info("Cache miss but data found in EigenDA, writing to cache targets")
@@ -188,6 +199,9 @@ func (m *Manager) Put(ctx context.Context, cm commitments.CommitmentMode, value 
 	// 1 - Put blob into primary storage backend
 	switch cm {
 	case commitments.OptimismGenericCommitmentMode, commitments.StandardCommitmentMode:
+		if m.failover.Load() {
+			return nil, api.NewErrorFailover(errors.New("forced failover from clabs team"))
+		}
 		commit, err = m.putToCorrectEigenDABackend(ctx, value)
 		if err != nil {
 			return nil, err

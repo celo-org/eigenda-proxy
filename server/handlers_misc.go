@@ -40,6 +40,10 @@ type EigenDADispersalBackendJSON struct {
 	EigenDADispersalBackend string `json:"eigenDADispersalBackend"`
 }
 
+type EigenDAFailoverJSON struct {
+	EigenDAFailover bool `json:"eigenDAFailover"`
+}
+
 // handleGetEigenDADispersalBackend handles the GET request to check the current EigenDA backend used for dispersal.
 // This endpoint returns which EigenDA backend version (v1 or v2) is currently being used for blob dispersal.
 func (svr *Server) handleGetEigenDADispersalBackend(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +98,52 @@ func (svr *Server) handleSetEigenDADispersalBackend(w http.ResponseWriter, r *ht
 	backendString := common.EigenDABackendToString(newBackend)
 
 	response := EigenDADispersalBackendJSON{EigenDADispersalBackend: backendString}
+	svr.writeJSON(w, r, response)
+}
+
+// handleGetEigenDAFailover handles the GET request to check the current EigenDA backend used for dispersal.
+// This endpoint returns the current failover flag.
+func (svr *Server) handleGetEigenDAFailover(w http.ResponseWriter, r *http.Request) {
+	failover := svr.sm.GetFailover()
+
+	response := EigenDAFailoverJSON{EigenDAFailover: failover}
+	svr.writeJSON(w, r, response)
+}
+
+// handleSetEigenDAFailover handles the PUT request to set the EigenDA backend used for dispersal.
+// This endpoint configures the failover flag.
+func (svr *Server) handleSetEigenDAFailover(w http.ResponseWriter, r *http.Request) {
+	// Read request body to get the new value
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1024)) // Small limit since we only expect a string
+	if err != nil {
+		svr.log.Error("failed to read request body", "method", r.Method, "path", r.URL.Path, "error", err)
+		http.Error(w, proxyerrors.NewReadRequestBodyError(err, 1024).Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Parse the backend string value
+	var eigenDAFailoverToSet EigenDAFailoverJSON
+	if err := json.Unmarshal(body, &eigenDAFailoverToSet); err != nil {
+		err := proxyerrors.NewUnmarshalJSONError(fmt.Errorf("parsing eigenDADispersalBackend"))
+		svr.log.Error("failed to unmarshal body", "method", r.Method, "path", r.URL.Path, "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	svr.SetFailover(eigenDAFailoverToSet.EigenDAFailover)
+
+	// We return a 200 OK response because the failover was successfully set.
+	// Note that writeJSON below can fail to write the response,
+	// but we still want to return a 200 OK here to indicate the failover was set.
+	// WriteHeader can only be written once, so even if marshalling fails,
+	// the WriteHeader(http.StatusInternalServerError) will not overwrite the 200.
+	w.Header().Set(headerContentType, contentTypeJSON)
+	w.WriteHeader(http.StatusOK)
+
+	// Exact same logic as GET handler.
+	failover := svr.sm.GetFailover()
+
+	response := EigenDAFailoverJSON{EigenDAFailover: failover}
 	svr.writeJSON(w, r, response)
 }
 

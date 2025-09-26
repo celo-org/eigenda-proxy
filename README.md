@@ -181,6 +181,30 @@ Valid values for `eigenDADispersalBackend` are:
 - `"v1"`: Use EigenDA V1 backend for dispersal
 - `"v2"`: Use EigenDA V2 backend for dispersal
 
+```text
+Request:
+  GET /admin/eigenda-failover
+
+Response:
+  200 OK
+  Content-Type: application/json
+  Body: {"eigenDAFailover": bool}
+```
+
+```text
+Request:
+  PUT /admin/eigenda-failover
+  Content-Type: application/json
+  Body: {"eigenda-failover": bool}
+
+Response:
+  200 OK
+  Content-Type: application/json
+  Body: {"eigenDAFailover": bool}
+```
+
+When `eigenDAFailover` is set to true, the proxy will return 503 responses for PUT blobs to be dispersed. This should later used by the batcher to failover into a different DA
+
 ### Migrating from EigenDA V1 to V2
 
 There are two approaches for migrating from EigenDA V1 to V2: on-the-fly migration using runtime configuration,
